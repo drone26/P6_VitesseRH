@@ -7,17 +7,6 @@
 
 import SwiftUI
 
-struct Candidate: Codable, Identifiable {
-    var id: UUID
-    var firstName: String
-    var lastName: String
-    var email: String
-    var phone: String?
-    var linkedinURL: String?
-    var note: String?
-    var isFavorite: Bool
-}
-
 struct CandidateListView: View {
     let candidates = [
         Candidate(id: UUID(), firstName: "Bob", lastName: "LEPONGE", email: "bob@leponge.fr", phone: "0601020304", linkedinURL: nil, note: nil, isFavorite: false),
