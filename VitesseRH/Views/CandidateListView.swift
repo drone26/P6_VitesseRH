@@ -1,5 +1,5 @@
 //
-//  CandidateListView.swift
+//  CandidateListView.swift (Fixed - Direct Initialization)
 //  Vitesse
 //
 //  Created by Mathieu ARRIO on 03/02/2026.
@@ -8,16 +8,17 @@
 import SwiftUI
 
 struct CandidateListView: View {
-    let candidates = [
-        Candidate(id: UUID(), firstName: "Bob", lastName: "LEPONGE", email: "bob@leponge.fr", phone: "0601020304", linkedinURL: nil, note: nil, isFavorite: false),
-        Candidate(id: UUID(), firstName: "Toto", lastName: "TUTU", email: "toto@tutu.fr", phone: nil, linkedinURL: nil, note: nil, isFavorite: true),
-        Candidate(id: UUID(), firstName: "mAThieu", lastName: "ARRIO", email: "mathieu@greatcandidate.fr", phone: "0601020304", linkedinURL: "https://www.linkedin.com/in/minimat26/", note: "Belles expériences de sysOps Linux avec une affinité au DevOps aussion bien en méthode de travail que que d'outillage.", isFavorite: false)
-    ]
-    
-    @State private var edit: Bool = false
+    @State private var viewModel: CandidateListViewModel
+    let appViewModel: AppViewModel
     
     @State private var searchText: String = ""
     @State private var showFavoritesOnly: Bool = false
+    @State private var edit: Bool = false
+    
+    init(appViewModel: AppViewModel) {
+        self.appViewModel = appViewModel
+        _viewModel = State(initialValue: appViewModel.candidateListViewModel)
+    }
     
     var body: some View {
         NavigationStack {
@@ -25,59 +26,80 @@ struct CandidateListView: View {
                 Color(.vitesseGreen.opacity(0.7))
                     .ignoresSafeArea()
                 
-                VStack() {
+                VStack {
+                    // Search bar from your original snippet
                     CandidateSearchBarView(searchText: $searchText)
                         .padding(.vertical, 10)
+                    
                     ScrollView {
                         VStack(spacing: 10) {
-                            let filtered = candidates.filter {
+                            let filtered = viewModel.candidates.filter {
                                 (searchText.isEmpty ||
-                                $0.firstName.localizedCaseInsensitiveContains(searchText) ||
-                                 $0.lastName.localizedCaseInsensitiveContains(searchText)) && (!showFavoritesOnly || $0.isFavorite)
+                                 $0.firstName.localizedCaseInsensitiveContains(searchText) ||
+                                 $0.lastName.localizedCaseInsensitiveContains(searchText)) &&
+                                (!showFavoritesOnly || $0.isFavorite)
                             }
                             
                             ForEach(filtered) { candidate in
                                 NavigationLink {
-                                    // CandidateDetailView(candidate: candidate)
+                                    CandidateDetailView(
+                                        candidate: candidate,
+                                        viewModel: appViewModel.candidateViewModel(candidate: candidate),
+                                        appViewModel: appViewModel
+                                    )
                                 } label: {
-                                    CandidateRowView(firstName: candidate.firstName, lastName: candidate.lastName, isFavorite: candidate.isFavorite)
+                                    CandidateRowView(
+                                        firstName: candidate.firstName,
+                                        lastName: candidate.lastName,
+                                        isFavorite: candidate.isFavorite
+                                    )
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
                         }
                         .padding()
                     }
+                    // Restoring your original list-like modifiers
                     .listStyle(.plain)
                     .listRowSpacing(12)
-                    .navigationBarTitleDisplayMode(.inline)
                     .padding(.horizontal)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button("Edit") {
-                                edit = true
-                            }
-                        }
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button() {
-                                showFavoritesOnly.toggle()
-                            } label: {
-                                Image(systemName: showFavoritesOnly ? "star.fill" : "star")
-                            }
-                        }
+                }
+            }
+            .navigationTitle("Candidates")
+            .navigationBarTitleDisplayMode(.inline) // Restore original header style
+            .toolbar {
+                // Leading Edit button
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Edit") {
+                        edit = true
                     }
-                    .navigationTitle("Candidates")
-                    .navigationDestination(isPresented: $edit) {
-                        // CandidateEditView()
+                    .foregroundColor(.white)
+                }
+                
+                // Trailing Star button
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showFavoritesOnly.toggle()
+                    } label: {
+                        Image(systemName: showFavoritesOnly ? "star.fill" : "star")
+                            .foregroundColor(.white)
                     }
                 }
+            }
+            .navigationDestination(isPresented: $edit) {
+                // CandidateEditView() - Placeholder as per original code
+            }
+        }
+        .onAppear {
+            Task {
+                await viewModel.fetchAllCandidates()
             }
         }
     }
 }
 
-
-
 #Preview {
-    CandidateListView()
+    @Previewable @State var appViewModel = AppViewModel()
+    CandidateListView(appViewModel: appViewModel)
+        .environment(appViewModel)
 }
-
