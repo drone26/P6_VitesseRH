@@ -1,5 +1,5 @@
 //
-//  CandidateListView.swift (Fixed - Direct Initialization)
+//  CandidateListView.swift
 //  Vitesse
 //
 //  Created by Mathieu ARRIO on 03/02/2026.
@@ -27,7 +27,6 @@ struct CandidateListView: View {
                     .ignoresSafeArea()
                 
                 VStack {
-                    // Search bar from your original snippet
                     CandidateSearchBarView(searchText: $searchText)
                         .padding(.vertical, 10)
                     
@@ -59,16 +58,23 @@ struct CandidateListView: View {
                         }
                         .padding()
                     }
-                    // Restoring your original list-like modifiers
+                    // MARK: - Refreshable Modifier
+                    .refreshable {
+                        await viewModel.fetchAllCandidates()
+                    }
                     .listStyle(.plain)
                     .listRowSpacing(12)
                     .padding(.horizontal)
                 }
             }
+            .onAppear {
+                Task {
+                    await viewModel.fetchAllCandidates()
+                }
+            }
             .navigationTitle("Candidates")
-            .navigationBarTitleDisplayMode(.inline) // Restore original header style
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Leading Edit button
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Edit") {
                         edit = true
@@ -76,7 +82,6 @@ struct CandidateListView: View {
                     .foregroundColor(.white)
                 }
                 
-                // Trailing Star button
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showFavoritesOnly.toggle()
@@ -87,12 +92,7 @@ struct CandidateListView: View {
                 }
             }
             .navigationDestination(isPresented: $edit) {
-                // CandidateEditView() - Placeholder as per original code
-            }
-        }
-        .onAppear {
-            Task {
-                await viewModel.fetchAllCandidates()
+                CandidateEditView(viewModel: appViewModel.candidateEditViewModel)
             }
         }
     }
