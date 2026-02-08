@@ -103,8 +103,8 @@ actor CandidateBackendService {
             let response: UserAuthenticationResponse = try await apiService.request(endpoint)
             self.token = response.token
             self.isAdmin = response.isAdmin
-            
-            print("ISADMIN: \(String(describing: self.isAdmin))")
+            print("TOKEN: \(self.token!)")
+            print("ISADMIN: \(self.isAdmin!)")            
         } catch let error as APIError {
             // Error messages from backend are now captured in the error itself
             throw error
