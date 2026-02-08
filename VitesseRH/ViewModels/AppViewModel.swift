@@ -51,4 +51,9 @@ final class AppViewModel {
     func candidateEditDetailViewModel(candidate: Candidate) -> CandidateEditDetailViewModel {
         CandidateEditDetailViewModel(candidate: candidate, backendService: sharedBackendService)
     }
+    
+    /// Provides CandidateEditViewModel for the bulk edit/delete view
+    var candidateEditViewModel: CandidateEditViewModel {
+        CandidateEditViewModel(backendService: sharedBackendService)
+    }
 }
