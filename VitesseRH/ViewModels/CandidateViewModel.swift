@@ -50,6 +50,21 @@ final class CandidateViewModel {
         isLoading = false
     }
     
+    /// Toggle favorite status
+    func toggleFavorite() async {
+        // We do not set global isLoading to avoid blocking the UI for a star toggle
+        errorMessage = nil
+        
+        do {
+            let updatedCandidate = try await backendService.toogleCandidateFavoriteStatus(candidateId: candidate.id)
+            self.candidate = updatedCandidate
+        } catch let error as APIError {
+            errorMessage = error.errorDescription
+        } catch {
+            errorMessage = "An unexpected error occurred"
+        }
+    }
+    
     /// Clear error message
     func clearError() {
         errorMessage = nil

@@ -1,5 +1,5 @@
 //
-//  CandidateDetailView.swift (Corrected)
+//  CandidateDetailView.swift
 //  Vitesse
 //
 //  Created by Mathieu ARRIO on 03/02/2026.
@@ -24,14 +24,23 @@ struct CandidateDetailView: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 20) {
-                // Original Header with Name and Favorite Star
+                // Header with Name and Favorite Star
                 HStack {
                     Text("\(candidate.firstName.capitalized) \(candidate.lastName.uppercased())")
                         .font(.title)
                     Spacer()
                     Button {
-                        // Toggle favorite status logic could be added here
-                        candidate.isFavorite.toggle()
+                        Task {
+                            // 1. Optimistic UI Update: Toggle immediately
+                            candidate.isFavorite.toggle()
+                            
+                            // 2. Call API
+                            await viewModel.toggleFavorite()
+                            
+                            // 3. Sync state: Ensure local state matches server response
+                            // If the API call failed, this will revert the star
+                            self.candidate = viewModel.candidate
+                        }
                     } label: {
                         Image(systemName: candidate.isFavorite ? "star.fill" : "star")
                             .foregroundStyle(.vitesseGreen)
@@ -39,7 +48,7 @@ struct CandidateDetailView: View {
                     }
                 }
                 
-                // Details formatted to match your original snippet
+                // Details
                 Text("Phone: \(candidate.phone ?? "")")
                 Text("Email: \(candidate.email)")
                 
@@ -100,10 +109,7 @@ struct CandidateDetailView: View {
 }
 
 #Preview {
-    // Create the shared app state
     let appViewModel = AppViewModel()
-    
-    // Create a mock candidate
     let sampleCandidate = Candidate(
         id: UUID(),
         firstName: "Mathieu",
@@ -115,8 +121,7 @@ struct CandidateDetailView: View {
         isFavorite: true
     )
     
-    // Correctly initialize the view with the required parameters
-    CandidateDetailView(
+    return CandidateDetailView(
         candidate: sampleCandidate,
         viewModel: appViewModel.candidateViewModel(candidate: sampleCandidate),
         appViewModel: appViewModel
