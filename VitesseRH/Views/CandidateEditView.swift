@@ -85,7 +85,6 @@ struct CandidateEditView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(.white)
                 }
                 
                 // Delete Button (Right)
@@ -96,7 +95,7 @@ struct CandidateEditView: View {
                             dismiss() // Dismissing view after deletion
                         }
                     }
-                    .foregroundColor(viewModel.hasSelection ? .red : .white.opacity(0.5))
+                    .foregroundColor(viewModel.hasSelection ? .red : .primary.opacity(0.5))
                     .disabled(!viewModel.hasSelection)
                 }
             }

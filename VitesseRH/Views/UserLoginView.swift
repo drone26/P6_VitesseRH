@@ -25,11 +25,12 @@ struct UserLoginView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient (Restored exactly as requested)
+                // Background gradient
                 LinearGradient(gradient: Gradient(colors: [.vitesseGreen.opacity(0.7), .vitesseGreen.opacity(0.0)]), startPoint: .top, endPoint: .bottomLeading)
                     .edgesIgnoringSafeArea(.all)
                 
                 VStack(spacing: 20) {
+                    // Title
                     Text("Login")
                         .font(.largeTitle)
                         .fontWeight(.semibold)
@@ -81,9 +82,9 @@ struct UserLoginView: View {
                     // Sign In Button
                     Button(action: {
                         Task {
-                            await viewModel.loginWithErrorHandling()
+                            try await viewModel.login()
                             if viewModel.isLoggedIn {
-                                // This triggers the switch in VitesseRHApp to the CandidateListView
+                                // This triggers the switch to the CandidateListView
                                 appViewModel.isLogged = true
                             }
                         }
@@ -93,7 +94,7 @@ struct UserLoginView: View {
                                 .tint(.white)
                         } else {
                             Text("Sign In")
-                                .foregroundColor(.white.opacity(viewModel.isFormValid ? 1.0 : 0.4))
+                                .foregroundColor(.white.opacity(viewModel.isFormValid ? 1.0 : 0.7))
                         }
                     }
                     .frame(maxWidth: .infinity)

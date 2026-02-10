@@ -57,9 +57,4 @@ final class CandidateListViewModel {
         
         isLoading = false
     }
-    
-    /// Clear error message
-    func clearError() {
-        errorMessage = nil
-    }
 }

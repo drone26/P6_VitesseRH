@@ -64,9 +64,4 @@ final class CandidateViewModel {
             errorMessage = "An unexpected error occurred"
         }
     }
-    
-    /// Clear error message
-    func clearError() {
-        errorMessage = nil
-    }
 }

@@ -5,8 +5,7 @@
 //  Created by Mathieu ARRIO on 07/02/2026.
 //
 
-import Foundation
-import Observation
+import SwiftUI
 
 /// ViewModel for managing user login
 @Observable
@@ -87,32 +86,5 @@ final class UserLoginViewModel {
             isLoading = false  // Set to false on error
             throw error
         }
-    }
-    
-    /// Perform user login with automatic error handling
-    func loginWithErrorHandling() async {
-        do {
-            try await login()
-        } catch {
-            // Error is already handled and set in errorMessage
-        }
-    }
-    
-    /// Clear error message
-    func clearError() {
-        errorMessage = nil
-    }
-    
-    /// Clear all fields
-    func clearForm() {
-        email = ""
-        password = ""
-        errorMessage = nil
-    }
-    
-    /// Reset login state
-    func resetLoginState() {
-        isLoggedIn = false
-        isAdmin = false
     }
 }

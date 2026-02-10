@@ -22,7 +22,7 @@ struct CandidateDetailView: View {
     }
     
     var body: some View {
-        HStack {
+        ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header with Name and Favorite Star
                 HStack {
@@ -31,24 +31,17 @@ struct CandidateDetailView: View {
                     Spacer()
                     Button {
                         Task {
-                            // 1. Optimistic UI Update: Toggle immediately
                             candidate.isFavorite.toggle()
-                            
-                            // 2. Call API
                             await viewModel.toggleFavorite()
-                            
-                            // 3. Sync state: Ensure local state matches server response
-                            // If the API call failed, this will revert the star
                             self.candidate = viewModel.candidate
                         }
                     } label: {
                         Image(systemName: candidate.isFavorite ? "star.fill" : "star")
-                            .foregroundStyle(.vitesseGreen)
                             .font(.title)
+                            .foregroundColor(.primary)
                     }
                 }
                 
-                // Details
                 Text("Phone: \(candidate.phone ?? "")")
                 Text("Email: \(candidate.email)")
                 
@@ -86,11 +79,13 @@ struct CandidateDetailView: View {
             Spacer()
         }
         .background(.vitesseGreen.opacity(0.7))
-        .navigationBarItems(
-            trailing: Button("Edit") {
-                edit = true
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Edit") {
+                    edit = true
+                }
             }
-        )
+        }
         // Integration with the actual Edit view and its ViewModel
         .navigationDestination(isPresented: $edit) {
             CandidateEditDetailView(
@@ -101,7 +96,6 @@ struct CandidateDetailView: View {
         .onAppear {
             Task {
                 await viewModel.refreshCandidate()
-                // Update local state if the background refresh found changes
                 self.candidate = viewModel.candidate
             }
         }

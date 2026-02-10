@@ -162,7 +162,7 @@ struct UserRegisterView: View {
                 // Register button
                 Button(action: {
                     Task {
-                        await viewModel.registerWithErrorHandling()
+                        try await viewModel.register()
                         if viewModel.isRegistered {
                             // Navigate back to login
                             dismiss()

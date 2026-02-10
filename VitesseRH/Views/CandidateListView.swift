@@ -79,7 +79,6 @@ struct CandidateListView: View {
                     Button("Edit") {
                         edit = true
                     }
-                    .foregroundColor(.white)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -87,7 +86,6 @@ struct CandidateListView: View {
                         showFavoritesOnly.toggle()
                     } label: {
                         Image(systemName: showFavoritesOnly ? "star.fill" : "star")
-                            .foregroundColor(.white)
                     }
                 }
             }

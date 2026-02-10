@@ -106,20 +106,6 @@ final class UserRegisterViewModel {
         }
     }
     
-    /// Perform user registration with automatic error handling
-    func registerWithErrorHandling() async {
-        do {
-            try await register()
-        } catch {
-            // Error is already handled and set in errorMessage
-        }
-    }
-    
-    /// Clear error message
-    func clearError() {
-        errorMessage = nil
-    }
-    
     /// Clear all fields
     func clearForm() {
         firstName = ""
