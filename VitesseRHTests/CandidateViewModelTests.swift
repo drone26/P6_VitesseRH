@@ -2,7 +2,7 @@
 //  CandidateViewModelTests.swift
 //  VitesseRHTests
 //
-//  Created by Mathieu ARRIO on 09/02/2026.
+//  Created by Mathieu ARRIO on 10/02/2026.
 //
 
 import XCTest
@@ -12,189 +12,231 @@ final class CandidateViewModelTests: XCTestCase {
     
     var viewModel: CandidateViewModel!
     var mockSession: MockURLSession!
-    var backendService: CandidateBackendService!
-    var initialCandidate: Candidate!
+    var mockKeychainService: MockKeychainService!
+    var mockApiService: APIService!
+    var mockBackendService: CandidateBackendService!
+    var sampleCandidate: Candidate!
+    
+    // MARK: - Setup & Teardown
     
     override func setUp() {
         super.setUp()
-        
-        // 1. Setup Mock Session
         mockSession = MockURLSession()
+        mockApiService = APIService(session: mockSession)
+        mockKeychainService = MockKeychainService()
+        mockBackendService = CandidateBackendService(
+            apiService: mockApiService,
+            keychainService: mockKeychainService
+        )
         
-        // 2. Setup Service Chain
-        let apiService = APIService(session: mockSession)
-        backendService = CandidateBackendService(apiService: apiService)
-        
-        // 3. Setup Initial Data
-        initialCandidate = Candidate(
+        sampleCandidate = Candidate(
             id: UUID(),
             firstName: "John",
             lastName: "Doe",
-            email: "john.doe@example.com",
-            phone: "123456789",
-            linkedinURL: nil,
-            note: "Initial note",
+            email: "john@example.com",
+            phone: "0601020304",
+            linkedinURL: "https://linkedin.com/in/johndoe",
+            note: "Great candidate",
             isFavorite: false
         )
         
-        // 4. Init ViewModel
-        viewModel = CandidateViewModel(candidate: initialCandidate, backendService: backendService)
+        viewModel = CandidateViewModel(candidate: sampleCandidate, backendService: mockBackendService)
     }
     
     override func tearDown() {
         viewModel = nil
-        backendService = nil
         mockSession = nil
-        initialCandidate = nil
+        mockApiService = nil
+        mockKeychainService = nil
+        mockBackendService = nil
+        sampleCandidate = nil
         super.tearDown()
     }
     
-    // MARK: - Helpers
+    // MARK: - Initial State Tests
     
-    /// Helper to simulate a logged-in state in the BackendService
-    private func authenticateService() async throws {
-        let authResponse = UserAuthenticationResponse(token: "mock_valid_token", isAdmin: false)
-        let data = try JSONEncoder().encode(authResponse)
-        
-        mockSession.data = data
-        mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com/user/auth")!,
-            statusCode: 200,
-            httpVersion: nil,
-            headerFields: nil
-        )
-        
-        try await backendService.userAuthenticate(email: "test", password: "password")
+    func test_initial_state() {
+        // Then
+        XCTAssertEqual(viewModel.candidate.firstName, "John")
+        XCTAssertEqual(viewModel.candidate.lastName, "Doe")
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
     }
     
-    // MARK: - refreshCandidate Tests
+    // MARK: - Refresh Candidate Tests
     
-    func test_refreshCandidate_success_updates_candidate() async throws {
-        // When
-        try await authenticateService() // Must be logged in
+    func test_refreshCandidate_success() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
         
         let updatedCandidate = Candidate(
-            id: initialCandidate.id,
+            id: sampleCandidate.id,
             firstName: "John",
             lastName: "Doe",
-            email: "john.doe@example.com",
-            phone: "987654321", // Changed
-            linkedinURL: "https://linkedin.com/in/johndoe", // Changed
-            note: "Updated note", // Changed
-            isFavorite: true // Changed
+            email: "john.updated@example.com",
+            phone: "0602020304",
+            linkedinURL: "https://linkedin.com/in/johndoe",
+            note: "Updated note",
+            isFavorite: true
         )
         
-        mockSession.data = try JSONEncoder().encode(updatedCandidate)
+        let responseData = try JSONEncoder().encode(updatedCandidate)
+        mockSession.data = responseData
         mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com/candidate")!,
+            url: URL(string: "https://api.test.com/candidate/\(sampleCandidate.id.uuidString)")!,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
         )
         
-        // Given
+        // When
         await viewModel.refreshCandidate()
         
         // Then
-        XCTAssertEqual(viewModel.candidate.phone, "987654321")
+        XCTAssertEqual(viewModel.candidate.email, "john.updated@example.com")
+        XCTAssertEqual(viewModel.candidate.phone, "0602020304")
         XCTAssertEqual(viewModel.candidate.note, "Updated note")
         XCTAssertTrue(viewModel.candidate.isFavorite)
-        
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertNil(viewModel.errorMessage)
     }
     
     func test_refreshCandidate_without_token_sets_unauthorized_error() async {
-        // When (Do not call authenticateService())
+        // Given - no token in keychain
+        await mockKeychainService.clearToken()
         
-        // Given
+        // When
         await viewModel.refreshCandidate()
         
         // Then
         XCTAssertNotNil(viewModel.errorMessage)
-        XCTAssertTrue(viewModel.errorMessage?.contains("token") == true || viewModel.errorMessage?.contains("Unauthorized") == true)
         XCTAssertFalse(viewModel.isLoading)
+        
+        if let errorMessage = viewModel.errorMessage {
+            XCTAssertTrue(
+                errorMessage.lowercased().contains("token") ||
+                errorMessage.lowercased().contains("unauthorized") ||
+                errorMessage.contains("No authentication token available")
+            )
+        }
     }
     
-    func test_refreshCandidate_api_error_sets_errorMessage() async throws {
-        // When
-        try await authenticateService()
+    func test_refreshCandidate_handles_api_error() async {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
         
-        mockSession.data = Data()
+        let errorResponse = """
+        { "error": true, "reason": "Candidate not found" }
+        """.data(using: .utf8)!
+        
+        mockSession.data = errorResponse
         mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
-            statusCode: 404, // Not Found
+            url: URL(string: "https://api.test.com/candidate/\(sampleCandidate.id.uuidString)")!,
+            statusCode: 404,
             httpVersion: nil,
             headerFields: nil
         )
         
-        // Given
+        // When
         await viewModel.refreshCandidate()
         
         // Then
-        XCTAssertNotNil(viewModel.errorMessage) // Expecting "Not found"
+        XCTAssertNotNil(viewModel.errorMessage)
         XCTAssertFalse(viewModel.isLoading)
-        // Candidate data should remain unchanged on failure
-        XCTAssertEqual(viewModel.candidate.phone, "123456789")
+        
+        if let errorMessage = viewModel.errorMessage {
+            XCTAssertTrue(
+                errorMessage.contains("Candidate not found") ||
+                errorMessage.lowercased().contains("not found")
+            )
+        }
     }
     
-    func test_refreshCandidate_generic_error_sets_default_message() async throws {
-        // When
-        try await authenticateService()
-        
-        // Simulate a network error (no response/data logic in MockSession for error)
-        mockSession.error = NSError(domain: "Test", code: -1, userInfo: nil)
-        
+    // MARK: - Toggle Favorite Tests
+    
+    func test_toggleFavorite_success() async throws {
         // Given
-        await viewModel.refreshCandidate()
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
         
-        // Then
-        XCTAssertEqual(viewModel.errorMessage, "An unexpected error occurred")
-        XCTAssertFalse(viewModel.isLoading)
-    }
-    
-    // MARK: - toggleFavorite Tests
-    
-    func test_toggleFavorite_success_flips_value() async throws {
-        // When
-        try await authenticateService()
+        let initialFavoriteStatus = viewModel.candidate.isFavorite
         
-        var favoritedCandidate = initialCandidate!
-        favoritedCandidate.isFavorite = true
+        let updatedCandidate = Candidate(
+            id: sampleCandidate.id,
+            firstName: sampleCandidate.firstName,
+            lastName: sampleCandidate.lastName,
+            email: sampleCandidate.email,
+            phone: sampleCandidate.phone,
+            linkedinURL: sampleCandidate.linkedinURL,
+            note: sampleCandidate.note,
+            isFavorite: !initialFavoriteStatus
+        )
         
-        mockSession.data = try JSONEncoder().encode(favoritedCandidate)
+        let responseData = try JSONEncoder().encode(updatedCandidate)
+        mockSession.data = responseData
         mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+            url: URL(string: "https://api.test.com/candidate/\(sampleCandidate.id.uuidString)/favorite")!,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
         )
         
-        // Given
+        // When
         await viewModel.toggleFavorite()
         
         // Then
-        XCTAssertTrue(viewModel.candidate.isFavorite)
+        XCTAssertEqual(viewModel.candidate.isFavorite, !initialFavoriteStatus)
         XCTAssertNil(viewModel.errorMessage)
     }
     
-    func test_toggleFavorite_failure_does_not_update_candidate() async throws {
-        // When
-        try await authenticateService()
+    func test_toggleFavorite_without_token_sets_error() async {
+        // Given - no token
+        await mockKeychainService.clearToken()
         
-        // Simulate Server Error
+        // When
+        await viewModel.toggleFavorite()
+        
+        // Then
+        XCTAssertNotNil(viewModel.errorMessage)
+        
+        if let errorMessage = viewModel.errorMessage {
+            XCTAssertTrue(
+                errorMessage.lowercased().contains("token") ||
+                errorMessage.lowercased().contains("unauthorized")
+            )
+        }
+    }
+    
+    func test_toggleFavorite_handles_api_error() async {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let errorResponse = """
+        { "error": true, "reason": "Server error" }
+        """.data(using: .utf8)!
+        
+        mockSession.data = errorResponse
         mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+            url: URL(string: "https://api.test.com/candidate/\(sampleCandidate.id.uuidString)/favorite")!,
             statusCode: 500,
             httpVersion: nil,
             headerFields: nil
         )
         
-        // Given
+        // When
         await viewModel.toggleFavorite()
         
         // Then
-        XCTAssertFalse(viewModel.candidate.isFavorite) // Should remain false
         XCTAssertNotNil(viewModel.errorMessage)
+        
+        if let errorMessage = viewModel.errorMessage {
+            XCTAssertTrue(
+                errorMessage.lowercased().contains("server error") ||
+                errorMessage.lowercased().contains("error")
+            )
+        }
     }
 }

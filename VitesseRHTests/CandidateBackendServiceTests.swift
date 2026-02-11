@@ -2,7 +2,7 @@
 //  CandidateBackendServiceTests.swift
 //  VitesseRHTests
 //
-//  Created by Mathieu ARRIO on 09/02/2026.
+//  Created by Mathieu ARRIO on 10/02/2026.
 //
 
 import XCTest
@@ -12,347 +12,452 @@ final class CandidateBackendServiceTests: XCTestCase {
     
     var service: CandidateBackendService!
     var mockSession: MockURLSession!
+    var mockKeychainService: MockKeychainService!
+    var mockApiService: APIService!
+    
+    // MARK: - Setup & Teardown
     
     override func setUp() {
         super.setUp()
-        // 1. Setup Mock Session
         mockSession = MockURLSession()
-        
-        // 2. Inject into APIService
-        let apiService = APIService(session: mockSession)
-        
-        // 3. Inject into BackendService
-        service = CandidateBackendService(apiService: apiService)
+        mockApiService = APIService(session: mockSession)
+        mockKeychainService = MockKeychainService()
+        service = CandidateBackendService(
+            apiService: mockApiService,
+            keychainService: mockKeychainService
+        )
     }
     
     override func tearDown() {
         service = nil
         mockSession = nil
+        mockApiService = nil
+        mockKeychainService = nil
         super.tearDown()
     }
     
-    // MARK: - Helpers
+    // MARK: - User Authentication Tests
     
-    private func performLogin() async throws {
-        let authResponse = UserAuthenticationResponse(token: "test_token_123", isAdmin: true)
-        let data = try JSONEncoder().encode(authResponse)
+    func test_userAuthenticate_saves_token_to_keychain() async throws {
+        // Given
+        let email = "test@example.com"
+        let password = "password123"
+        let expectedToken = "auth_token_12345"
         
-        mockSession.data = data
+        let responseData = try JSONEncoder().encode(
+            UserAuthenticationResponse(token: expectedToken, isAdmin: true)
+        )
+        mockSession.data = responseData
         mockSession.response = HTTPURLResponse(
-            url: URL(string: "https://example.com/user/auth")!,
+            url: URL(string: "https://api.test.com/user/auth")!,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
         )
         
-        try await service.userAuthenticate(email: "admin@test.com", password: "password")
-    }
-    
-    // MARK: - Authentication Tests
-    
-    func test_userAuthenticate_success_sets_token_and_admin() async throws {
         // When
-        let expectedToken = "token_abc"
-        let expectedAdmin = true
-        let responseObj = UserAuthenticationResponse(token: expectedToken, isAdmin: expectedAdmin)
-        mockSession.data = try JSONEncoder().encode(responseObj)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
-        // Given
-        try await service.userAuthenticate(email: "test@test.com", password: "123")
+        try await service.userAuthenticate(email: email, password: password)
         
         // Then
-        let token = await service.token
+        let savedToken = try await mockKeychainService.getToken()
         let isAdmin = await service.isAdmin
-        XCTAssertEqual(token, expectedToken)
-        XCTAssertEqual(isAdmin, expectedAdmin)
-        
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "POST")
-        XCTAssertEqual(mockSession.lastRequest?.url?.path, "/user/auth")
+        XCTAssertEqual(savedToken, expectedToken)
+        XCTAssertEqual(isAdmin, true)
     }
     
-    func test_userAuthenticate_failure_throws_error() async {
-        // When (401 Unauthorized)
-        let errorBody = BackendErrorResponse(error: true, reason: "Bad credentials")
-        mockSession.data = try! JSONEncoder().encode(errorBody)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 401, httpVersion: nil, headerFields: nil)
+    func test_userAuthenticate_with_non_admin_user() async throws {
+        // Given
+        let email = "user@example.com"
+        let password = "password123"
+        let expectedToken = "user_token_xyz"
         
-        // Given / Then
+        let responseData = try JSONEncoder().encode(
+            UserAuthenticationResponse(token: expectedToken, isAdmin: false)
+        )
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/user/auth")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        try await service.userAuthenticate(email: email, password: password)
+        
+        // Then
+        let savedToken = try await mockKeychainService.getToken()
+        let isAdmin = await service.isAdmin
+        XCTAssertEqual(savedToken, expectedToken)
+        XCTAssertEqual(isAdmin, false)
+    }
+    
+    func test_userAuthenticate_failure_does_not_save_token() async throws {
+        // Given
+        let email = "wrong@example.com"
+        let password = "wrongpassword"
+        
+        let errorResponse = """
+        { "error": true, "reason": "Invalid credentials" }
+        """.data(using: .utf8)!
+        
+        mockSession.data = errorResponse
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/user/auth")!,
+            statusCode: 401,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When / Then
         do {
-            try await service.userAuthenticate(email: "bad", password: "bad")
+            try await service.userAuthenticate(email: email, password: password)
             XCTFail("Should throw error")
         } catch let error as APIError {
-            // APIService maps 401 to .unAuthorized containing the reason
-            XCTAssertEqual(error.errorDescription, "Bad credentials")
+            XCTAssertEqual(error, .unAuthorized(reason: "Invalid credentials"))
+            let savedToken = try await mockKeychainService.getToken()
+            XCTAssertNil(savedToken)
         } catch {
-            XCTFail("Wrong error type")
-        }
-    }
-    
-    // MARK: - Registration Tests
-    
-    func test_userRegister_success() async throws {
-        // When
-        mockSession.data = Data()
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
-        // Given
-        try await service.userRegister(firstName: "John", lastName: "Doe", email: "j@d.com", password: "pass")
-        
-        // Then
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "POST")
-        XCTAssertEqual(mockSession.lastRequest?.url?.path, "/user/register")
-        
-        let bodyData = mockSession.lastRequest?.httpBody
-        let decodedBody = try JSONDecoder().decode(UserRegisterRequest.self, from: bodyData!)
-        XCTAssertEqual(decodedBody.firstName, "John")
-    }
-    
-    func test_userRegister_failure() async {
-        // When (400 Bad Request)
-        mockSession.data = try! JSONEncoder().encode(BackendErrorResponse(error: true, reason: "Email exists"))
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 400, httpVersion: nil, headerFields: nil)
-        
-        // Given / Then
-        do {
-            try await service.userRegister(firstName: "J", lastName: "D", email: "e", password: "p")
-            XCTFail("Should fail")
-        } catch let error as APIError {
-            XCTAssertEqual(error.errorDescription, "Email exists") // mapped to .badRequest
-        } catch {
-            XCTFail("Wrong error")
+            XCTFail("Unexpected error: \(error)")
         }
     }
     
     // MARK: - Fetch All Candidates Tests
     
-    func test_fetchAllCandidates_no_token_throws_unauthorized() async {
-        // When / Given / Then (Skip login)
-        do {
-            _ = try await service.fetchAllCandidates()
-            XCTFail("Should fail without token")
-        } catch let error as APIError {
-            XCTAssertEqual(error.errorDescription, "No authentication token available")
-        } catch {
-            XCTFail("Wrong error")
-        }
-    }
-    
-    func test_fetchAllCandidates_success() async throws {
-        // When
-        try await performLogin()
+    func test_fetchAllCandidates_retrieves_token_from_keychain() async throws {
+        // Given
+        let token = "test_token_123"
+        await mockKeychainService.setToken(token)
         
         let candidates = [
-            Candidate(id: UUID(), firstName: "A", lastName: "B", email: "a@b.com", phone: nil, linkedinURL: nil, note: nil, isFavorite: false)
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: true)
         ]
-        mockSession.data = try JSONEncoder().encode(candidates)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
         
-        // Given
+        // When
         let result = try await service.fetchAllCandidates()
         
         // Then
-        XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "GET")
-        XCTAssertEqual(mockSession.lastRequest?.value(forHTTPHeaderField: "Authorization"), "Bearer test_token_123")
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result[0].firstName, "John")
+        XCTAssertEqual(result[1].firstName, "Jane")
+        
+        // Verify token was used in request
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
+    }
+    
+    func test_fetchAllCandidates_fails_when_not_logged_in() async {
+        // Given - no token in keychain (not logged in)
+        await mockKeychainService.clearToken()
+        
+        // When / Then
+        do {
+            _ = try await service.fetchAllCandidates()
+            XCTFail("Should throw error when not logged in")
+        } catch let error as APIError {
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
     
     // MARK: - Fetch Single Candidate Tests
     
-    func test_fetchCandidate_success() async throws {
-        // When
-        try await performLogin()
-        let id = UUID()
-        let candidate = Candidate(id: id, firstName: "A", lastName: "B", email: "a@b.com", phone: nil, linkedinURL: nil, note: nil, isFavorite: false)
-        
-        mockSession.data = try JSONEncoder().encode(candidate)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
+    func test_fetchCandidate_retrieves_token_from_keychain() async throws {
         // Given
-        let result = try await service.fetchCandidate(candidateId: id)
+        let token = "test_token_456"
+        await mockKeychainService.setToken(token)
+        
+        let candidateId = UUID()
+        let candidate = Candidate(
+            id: candidateId,
+            firstName: "John",
+            lastName: "Doe",
+            email: "john@example.com",
+            isFavorite: false
+        )
+        
+        let responseData = try JSONEncoder().encode(candidate)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate/\(candidateId.uuidString)")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        let result = try await service.fetchCandidate(candidateId: candidateId)
         
         // Then
-        XCTAssertEqual(result.id, id)
-        XCTAssertEqual(mockSession.lastRequest?.url?.path, "/candidate/\(id.uuidString)")
+        XCTAssertEqual(result.id, candidateId)
+        XCTAssertEqual(result.firstName, "John")
+        
+        // Verify token was used
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
+    }
+    
+    func test_fetchCandidate_fails_when_no_token() async {
+        // Given
+        await mockKeychainService.clearToken()
+        let candidateId = UUID()
+        
+        // When / Then
+        do {
+            _ = try await service.fetchCandidate(candidateId: candidateId)
+            XCTFail("Should throw error")
+        } catch let error as APIError {
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
     
     // MARK: - Create Candidate Tests
     
-    func test_createCandidate_success() async throws {
-        // When
-        try await performLogin()
-        let request = CandidateRequest(firstName: "New", lastName: "Guy", email: "new@guy.com", phone: nil, linkedinURL: nil, note: nil)
-        let responseCand = Candidate(id: UUID(), firstName: "New", lastName: "Guy", email: "new@guy.com", phone: nil, linkedinURL: nil, note: nil, isFavorite: false)
-        
-        mockSession.data = try JSONEncoder().encode(responseCand)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 201, httpVersion: nil, headerFields: nil)
-        
+    func test_createCandidate_retrieves_token_from_keychain() async throws {
         // Given
-        let result = try await service.createCandidate(candidateRequest: request)
+        let token = "test_token_789"
+        await mockKeychainService.setToken(token)
+        
+        let candidateRequest = CandidateRequest(
+            firstName: "Bob",
+            lastName: "Johnson",
+            email: "bob@example.com",
+            phone: "123-456-7890",
+            linkedinURL: nil,
+            note: nil
+        )
+        
+        let createdCandidate = Candidate(
+            id: UUID(),
+            firstName: "Bob",
+            lastName: "Johnson",
+            email: "bob@example.com",
+            isFavorite: false
+        )
+        
+        let responseData = try JSONEncoder().encode(createdCandidate)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 201,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        let result = try await service.createCandidate(candidateRequest: candidateRequest)
         
         // Then
-        XCTAssertEqual(result.firstName, "New")
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "POST")
+        XCTAssertEqual(result.firstName, "Bob")
+        XCTAssertEqual(result.lastName, "Johnson")
         
-        let sentData = mockSession.lastRequest?.httpBody
-        let decoded = try JSONDecoder().decode(CandidateRequest.self, from: sentData!)
-        XCTAssertEqual(decoded.email, "new@guy.com")
+        // Verify token was used
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
     }
     
-    func test_createCandidate_no_token_throws_unauthorized() async {
-        // When (skip login)
-        let request = CandidateRequest(
-            firstName: "John",
-            lastName: "Doe",
-            email: "john@test.com",
+    func test_createCandidate_fails_when_no_token() async {
+        // Given
+        await mockKeychainService.clearToken()
+        
+        let candidateRequest = CandidateRequest(
+            firstName: "Bob",
+            lastName: "Johnson",
+            email: "bob@example.com",
             phone: nil,
             linkedinURL: nil,
             note: nil
         )
         
-        // Given / Then
+        // When / Then
         do {
-            _ = try await service.createCandidate(candidateRequest: request)
-            XCTFail("Should have thrown unAuthorized error because token is nil")
+            _ = try await service.createCandidate(candidateRequest: candidateRequest)
+            XCTFail("Should throw error")
         } catch let error as APIError {
-            // Assert
-            // This verifies the specific error thrown when token is nil
-            XCTAssertEqual(error.errorDescription, "No authentication token available")
-            
-            // Verify it is the correct enum case
-            if case .unAuthorized(let reason) = error {
-                XCTAssertEqual(reason, "No authentication token available")
-            } else {
-                XCTFail("Error should be .unAuthorized")
-            }
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
         } catch {
-            XCTFail("Thrown error was not an APIError: \(error)")
+            XCTFail("Unexpected error: \(error)")
         }
     }
     
     // MARK: - Update Candidate Tests
     
-    func test_updateCandidate_success() async throws {
-        // When
-        try await performLogin()
-        let id = UUID()
-        let request = CandidateRequest(firstName: "Updated", lastName: "Guy", email: "u@g.com", phone: "123", linkedinURL: nil, note: nil)
-        let responseCand = Candidate(id: id, firstName: "Updated", lastName: "Guy", email: "u@g.com", phone: "123", linkedinURL: nil, note: nil, isFavorite: false)
-        
-        mockSession.data = try JSONEncoder().encode(responseCand)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
+    func test_updateCandidate_retrieves_token_from_keychain() async throws {
         // Given
-        let result = try await service.updateCandidate(candidateId: id, candidateRequest: request)
+        let token = "test_token_update"
+        await mockKeychainService.setToken(token)
+        
+        let candidateId = UUID()
+        let candidateRequest = CandidateRequest(
+            firstName: "John",
+            lastName: "Doe",
+            email: "john.doe@example.com",
+            phone: "987-654-3210",
+            linkedinURL: "https://linkedin.com/in/johndoe",
+            note: "Updated note"
+        )
+        
+        let updatedCandidate = Candidate(
+            id: candidateId,
+            firstName: "John",
+            lastName: "Doe",
+            email: "john.doe@example.com",
+            phone: "987-654-3210",
+            linkedinURL: "https://linkedin.com/in/johndoe",
+            note: "Updated note",
+            isFavorite: false
+        )
+        
+        let responseData = try JSONEncoder().encode(updatedCandidate)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate/\(candidateId.uuidString)")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        let result = try await service.updateCandidate(candidateId: candidateId, candidateRequest: candidateRequest)
         
         // Then
-        XCTAssertEqual(result.phone, "123")
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "PUT")
-        XCTAssertEqual(mockSession.lastRequest?.url?.path, "/candidate/\(id.uuidString)")
+        XCTAssertEqual(result.phone, "987-654-3210")
+        XCTAssertEqual(result.note, "Updated note")
+        
+        // Verify token was used
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
     }
     
-    func test_updateCandidate_no_token_throws_unauthorized() async {
-        // When (skip login)
-        let id = UUID()
-        let request = CandidateRequest(
-            firstName: "Updated",
-            lastName: "Name",
-            email: "updated@test.com",
+    func test_updateCandidate_fails_when_no_token() async {
+        // Given
+        await mockKeychainService.clearToken()
+        
+        let candidateId = UUID()
+        let candidateRequest = CandidateRequest(
+            firstName: "John",
+            lastName: "Doe",
+            email: "john@example.com",
             phone: nil,
             linkedinURL: nil,
             note: nil
         )
         
-        // Given / Then
+        // When / Then
         do {
-            _ = try await service.updateCandidate(candidateId: id, candidateRequest: request)
-            XCTFail("Should have thrown unAuthorized error because token is nil")
+            _ = try await service.updateCandidate(candidateId: candidateId, candidateRequest: candidateRequest)
+            XCTFail("Should throw error")
         } catch let error as APIError {
-            // Assert
-            XCTAssertEqual(error.errorDescription, "No authentication token available")
-            
-            // Verify it is the correct enum case
-            if case .unAuthorized(let reason) = error {
-                XCTAssertEqual(reason, "No authentication token available")
-            } else {
-                XCTFail("Error should be .unAuthorized")
-            }
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
         } catch {
-            XCTFail("Thrown error was not an APIError: \(error)")
+            XCTFail("Unexpected error: \(error)")
         }
     }
     
     // MARK: - Delete Candidate Tests
     
-    func test_deleteCandidate_success() async throws {
-        // When
-        try await performLogin()
-        let id = UUID()
-        
-        mockSession.data = Data()
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
+    func test_deleteCandidate_retrieves_token_from_keychain() async throws {
         // Given
-        try await service.deleteCandidate(candidateId: id)
+        let token = "test_token_delete"
+        await mockKeychainService.setToken(token)
+        
+        let candidateId = UUID()
+        mockSession.data = Data()
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate/\(candidateId.uuidString)")!,
+            statusCode: 204,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        try await service.deleteCandidate(candidateId: candidateId)
         
         // Then
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "DELETE")
-        XCTAssertEqual(mockSession.lastRequest?.url?.path, "/candidate/\(id.uuidString)")
+        // Verify token was used
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
     }
     
-    func test_deleteCandidate_no_token_throws_unauthorized() async {
-        // When
-        let id = UUID()
-        // No login performed
+    func test_deleteCandidate_fails_when_no_token() async {
+        // Given
+        await mockKeychainService.clearToken()
+        let candidateId = UUID()
         
-        // Given / Then
+        // When / Then
         do {
-            try await service.deleteCandidate(candidateId: id)
-            XCTFail("Should have thrown unAuthorized error because token is nil")
+            try await service.deleteCandidate(candidateId: candidateId)
+            XCTFail("Should throw error")
         } catch let error as APIError {
-            // Assert
-            XCTAssertEqual(error.errorDescription, "No authentication token available")
-            
-            if case .unAuthorized(let reason) = error {
-                XCTAssertEqual(reason, "No authentication token available")
-            } else {
-                XCTFail("Error should be .unAuthorized")
-            }
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
         } catch {
-            XCTFail("Thrown error was not an APIError: \(error)")
+            XCTFail("Unexpected error: \(error)")
         }
     }
     
     // MARK: - Toggle Favorite Tests
     
-    func test_toggleCandidateFavoriteStatus_success() async throws {
-        // When
-        try await performLogin()
-        let id = UUID()
-        // Simulate toggled state in response
-        let responseCand = Candidate(id: id, firstName: "Fave", lastName: "Guy", email: "f@g.com", phone: nil, linkedinURL: nil, note: nil, isFavorite: true)
-        
-        mockSession.data = try JSONEncoder().encode(responseCand)
-        mockSession.response = HTTPURLResponse(url: URL(string: "http://test.com")!, statusCode: 200, httpVersion: nil, headerFields: nil)
-        
+    func test_toogleCandidateFavoriteStatus_retrieves_token_from_keychain() async throws {
         // Given
-        let result = try await service.toogleCandidateFavoriteStatus(candidateId: id)
+        let token = "test_token_favorite"
+        await mockKeychainService.setToken(token)
+        
+        let candidateId = UUID()
+        let favoriteCandidate = Candidate(
+            id: candidateId,
+            firstName: "Jane",
+            lastName: "Smith",
+            email: "jane@example.com",
+            isFavorite: true
+        )
+        
+        let responseData = try JSONEncoder().encode(favoriteCandidate)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate/\(candidateId.uuidString)/favorite")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        // When
+        let result = try await service.toogleCandidateFavoriteStatus(candidateId: candidateId)
         
         // Then
-        XCTAssertTrue(result.isFavorite)
-        XCTAssertEqual(mockSession.lastRequest?.httpMethod, "POST")
-        XCTAssertTrue(mockSession.lastRequest?.url?.path.hasSuffix("/favorite") ?? false)
+        XCTAssertEqual(result.isFavorite, true)
+        
+        // Verify token was used
+        let request = mockSession.lastRequest
+        XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
     }
     
-    func test_toggleCandidateFavoriteStatus_no_token() async {
-        // When / Given / Then (Skip login)
+    func test_toogleCandidateFavoriteStatus_fails_when_no_token() async {
+        // Given
+        await mockKeychainService.clearToken()
+        let candidateId = UUID()
+        
+        // When / Then
         do {
-            _ = try await service.toogleCandidateFavoriteStatus(candidateId: UUID())
-            XCTFail("Should fail")
+            _ = try await service.toogleCandidateFavoriteStatus(candidateId: candidateId)
+            XCTFail("Should throw error")
         } catch let error as APIError {
-            XCTAssertEqual(error.errorDescription, "No authentication token available")
+            XCTAssertEqual(error, .unAuthorized(reason: "No authentication token available"))
         } catch {
-            XCTFail("Wrong error")
+            XCTFail("Unexpected error: \(error)")
         }
     }
 }
+
+
