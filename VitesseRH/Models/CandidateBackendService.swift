@@ -10,11 +10,12 @@ import Foundation
 /// Service layer for interacting with the Candidate API backend
 actor CandidateBackendService {
     private let apiService: APIService
-    private(set) var token: String?
+    private let keychainService: KeychainServiceProtocol
     private(set) var isAdmin: Bool?
     
-    init(apiService: APIService = APIService()) {
+    init(apiService: APIService = APIService(), keychainService: KeychainServiceProtocol = KeychainService()) {
         self.apiService = apiService
+        self.keychainService = keychainService
     }
     
     // MARK: - Endpoint Definitions
@@ -101,12 +102,14 @@ actor CandidateBackendService {
         
         do {
             let response: UserAuthenticationResponse = try await apiService.request(endpoint)
-            self.token = response.token
             self.isAdmin = response.isAdmin
-            print("TOKEN: \(self.token!)")
-            print("ISADMIN: \(self.isAdmin!)")            
+            
+            // Save token to Keychain
+            try await keychainService.saveToken(response.token)
+            
+            print("TOKEN: \(response.token)")
+            print("ISADMIN: \(self.isAdmin!)")
         } catch let error as APIError {
-            // Error messages from backend are now captured in the error itself
             throw error
         }
     }
@@ -121,7 +124,6 @@ actor CandidateBackendService {
         do {
             try await apiService.requestVoid(endpoint)
         } catch let error as APIError {
-            // Error messages from backend are now captured in the error itself
             throw error
         }
     }
@@ -130,7 +132,7 @@ actor CandidateBackendService {
     
     /// Fetch all candidates
     func fetchAllCandidates() async throws -> [Candidate] {
-        guard let token = token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         let endpoint = Endpoint.fetchCandidates(token: token)
@@ -142,7 +144,7 @@ actor CandidateBackendService {
     
     /// Fetches details for a single candidate by ID
     func fetchCandidate(candidateId: UUID) async throws -> Candidate {
-        guard let token = token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         
@@ -157,7 +159,7 @@ actor CandidateBackendService {
     /// - Parameter candidateRequest: The candidate details
     /// - Returns: The newly created Candidate object
     func createCandidate(candidateRequest: CandidateRequest) async throws -> Candidate {
-        guard let token = self.token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         
@@ -174,7 +176,7 @@ actor CandidateBackendService {
     ///     candidateRequest: The candidate details
     /// - Returns: The updated Candidate object
     func updateCandidate(candidateId: UUID, candidateRequest: CandidateRequest) async throws -> Candidate {
-        guard let token = self.token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         
@@ -189,7 +191,7 @@ actor CandidateBackendService {
     /// - Parameter:
     ///     candidateId: The candidate uuid to delete
     func deleteCandidate(candidateId: UUID) async throws {
-        guard let token = self.token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         
@@ -204,7 +206,7 @@ actor CandidateBackendService {
     /// - Parameter:
     ///     candidateId: The candidate uuid to have favorite status toggled
     func toogleCandidateFavoriteStatus(candidateId: UUID) async throws -> Candidate {
-        guard let token = self.token else {
+        guard let token = try await keychainService.getToken() else {
             throw APIError.unAuthorized(reason: "No authentication token available")
         }
         
@@ -213,164 +215,3 @@ actor CandidateBackendService {
         return try await apiService.request(endpoint)
     }
 }
-
-/*
-import Playgrounds
-
-#Playground {
-    let sharedBackendService: CandidateBackendService
-    
-    sharedBackendService = CandidateBackendService()
-    
-    // Test login with bad credentials
-    do {
-        try await sharedBackendService.userAuthenticate(email: "bob@bob.fr", password: "1234")
-        
-    } catch let apiError as APIError {
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test login with good credentials
-    do {
-        try await sharedBackendService.userAuthenticate(email: "admin@vitesse.com", password: "test123")
-        
-    } catch let apiError as APIError {
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test user register
-    do {
-        try await sharedBackendService.userRegister(firstName: "Mathieu", lastName: "ARRIO", email: "mathieu@vitesse.com", password: "test1234")
-    }
-    catch let apiError as APIError {
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test login with good credentials
-    do {
-        try await sharedBackendService.userAuthenticate(email: "mathieu@vitesse.com", password: "test1234")
-    } catch let apiError as APIError {
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test fetch all candidates
-    do {
-        let candidatesResponse = try await sharedBackendService.fetchAllCandidates()
-        print(candidatesResponse)
-    } catch let apiError as APIError {
-        print("FETCHALLCANDIDATES ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test fetch a candidate
-    do {
-        let candidateResponse = try await sharedBackendService.fetchCandidate(candidateId: UUID(uuidString: "C75C7C0C-EB67-4F74-ACEC-7D2703B65DC2")!)
-        print("CANDIDATE (C75C7C0C-EB67-4F74-ACEC-7D2703B65DC2) : \(candidateResponse)")
-    } catch let apiError as APIError {
-        print("FETCHCANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test create a candidate
-    var candidateToCreate = CandidateRequest(firstName: "Bob", lastName: "LEPONGE", email: "bob@leponge.fr", phone: nil, linkedinURL: nil, note: nil)
-    do {
-        let candidateResponse = try await sharedBackendService.createCandidate(candidateRequest: candidateToCreate)
-        print(candidateResponse)
-    } catch let apiError as APIError {
-        print("CREATECANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test update a candidate
-    candidateToCreate = CandidateRequest(firstName: "Bob", lastName: "LEPONGE", email: "bob@leponge.fr", phone: "0622222222", linkedinURL: nil, note: nil)
-    do {
-        let candidateResponse = try await sharedBackendService.updateCandidate(candidateId: UUID(uuidString: "469BCC2B-66EA-4991-A00E-6715422624EA")!, candidateRequest: candidateToCreate)
-        print(candidateResponse)
-    } catch let apiError as APIError {
-        print("UPDATECANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test delete a candidate
-    do {
-        try await sharedBackendService.deleteCandidate(candidateId: UUID(uuidString: "F44F4769-BD46-49EE-8F1F-EC3CA619F63C")!)
-        
-    } catch let apiError as APIError {
-        print("DELETECANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test toggle favorite status for a candidate (Authentiacted user is not admin)
-    do {
-        let candidateResponse = try await sharedBackendService.toogleCandidateFavoriteStatus(candidateId: UUID(uuidString: "C75C7C0C-EB67-4F74-ACEC-7D2703B65DC2")!)
-        print(candidateResponse)
-    } catch let apiError as APIError {
-        print("TOGGLE FAVORITE STATUS CANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test login with good credentials with an admin user
-    do {
-        try await sharedBackendService.userAuthenticate(email: "admin@vitesse.com", password: "test123")
-    } catch let apiError as APIError {
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-    
-    // Test toggle favorite status for a candidate (Authentiacted user is admin)
-    do {
-        let candidateResponse = try await sharedBackendService.toogleCandidateFavoriteStatus(candidateId: UUID(uuidString: "C75C7C0C-EB67-4F74-ACEC-7D2703B65DC2")!)
-        print(candidateResponse)
-    } catch let apiError as APIError {
-        print("TOGGLE FAVORITE STATUS CANDIDATE ERROR")
-        print(apiError.errorDescription!)
-        print(getReadableErrorMessage(apiError))
-
-    }
-
-}
-
-func getReadableErrorMessage(_ error: APIError) -> String {
-    switch error {
-    case .badCredentials(let reason):
-        return "❌ Login Failed: \(reason ?? "Invalid credentials")"
-    case .unAuthorized(let reason):
-        return "🔐 Unauthorized: \(reason ?? "Invalid or expired token")"
-    case .badRequest(let reason):
-        return "⚠️ Invalid Request: \(reason ?? "Please check your input")"
-    case .notFound(let reason):
-        return "🔍 Not Found: \(reason ?? "The requested resource doesn't exist")"
-    case .serverError(let code, let reason):
-        return "⚠️ Server Error (\(code)): \(reason ?? "Please try again later")"
-    case .networkError:
-        return "📡 Network Error: Check your internet connection"
-    case .invalidURL:
-        return "🔗 Invalid URL"
-    case .decodingFailed:
-        return "📦 Failed to process response"
-    case .unknown:
-        return "❓ Unknown error occurred"
-    }
-}
-*/
