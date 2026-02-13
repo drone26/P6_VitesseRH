@@ -43,6 +43,7 @@ final class AppViewModel {
     }
     
     /// Provides CandidateViewModel with shared backend service
+    @MainActor
     func candidateViewModel(candidate: Candidate) -> CandidateViewModel {
         CandidateViewModel(candidate: candidate, backendService: sharedBackendService)
     }

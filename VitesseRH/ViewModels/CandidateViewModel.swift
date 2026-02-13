@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// ViewModel for managing a single candidate
-@Observable
+@MainActor @Observable
 final class CandidateViewModel {
     // MARK: - Properties
     
@@ -21,6 +21,9 @@ final class CandidateViewModel {
     /// Error state
     private(set) var errorMessage: String?
     
+    /// isAdmin state
+    private(set) var isAdmin: Bool = false
+    
     /// Backend service for API calls
     private let backendService: CandidateBackendService
     
@@ -29,6 +32,18 @@ final class CandidateViewModel {
     init(candidate: Candidate, backendService: CandidateBackendService = CandidateBackendService()) {
         self.candidate = candidate
         self.backendService = backendService
+        
+        Task {
+            let adminStatus = await backendService.isAdmin
+            await MainActor.run {
+                self.isAdmin = adminStatus ?? false
+            }
+        }
+    }
+    
+    /// Indicates if the current user can toggle favorite status
+    var canToggleFavorite: Bool {
+        isAdmin
     }
     
     // MARK: - Public Methods
@@ -65,3 +80,4 @@ final class CandidateViewModel {
         }
     }
 }
+

@@ -14,6 +14,7 @@ struct CandidateDetailView: View {
     
     @Environment(\.openURL) private var openURL
     @State private var edit: Bool = false
+    @State private var showAdminAlert: Bool = false
     
     init(candidate: Candidate, viewModel: CandidateViewModel, appViewModel: AppViewModel) {
         self._candidate = State(initialValue: candidate)
@@ -30,10 +31,14 @@ struct CandidateDetailView: View {
                         .font(.title)
                     Spacer()
                     Button {
-                        Task {
-                            candidate.isFavorite.toggle()
-                            await viewModel.toggleFavorite()
-                            self.candidate = viewModel.candidate
+                        if viewModel.isAdmin {
+                            Task {
+                                candidate.isFavorite.toggle()
+                                await viewModel.toggleFavorite()
+                                self.candidate = viewModel.candidate
+                            }
+                        } else {
+                            showAdminAlert = true
                         }
                     } label: {
                         Image(systemName: candidate.isFavorite ? "star.fill" : "star")
@@ -98,6 +103,11 @@ struct CandidateDetailView: View {
                 await viewModel.refreshCandidate()
                 self.candidate = viewModel.candidate
             }
+        }
+        .alert("Access Denied", isPresented: $showAdminAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Only administrators can toggle favorite status.")
         }
     }
 }
