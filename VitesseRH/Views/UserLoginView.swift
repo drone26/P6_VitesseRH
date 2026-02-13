@@ -15,7 +15,6 @@ struct UserLoginView: View {
     
     // MARK: - Navigation State
     @State private var register = false
-    // 'login' state is removed because we use appViewModel.isLogged to switch views
     
     init(appViewModel: AppViewModel) {
         self.appViewModel = appViewModel
