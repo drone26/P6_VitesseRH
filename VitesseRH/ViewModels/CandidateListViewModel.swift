@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// ViewModel for managing candidate list (simplified version without filters or modifications)
+/// ViewModel for managing candidate list
 @Observable
 final class CandidateListViewModel {
     // MARK: - Properties
