@@ -15,6 +15,12 @@ final class CandidateListViewModel {
     /// List of all candidates fetched from backend
     private(set) var candidates: [Candidate] = []
     
+    /// Search text filter
+    var searchText: String = ""
+    
+    /// Show favorites only filter
+    var showFavoritesOnly: Bool = false
+    
     /// Loading state
     private(set) var isLoading: Bool = false
     
@@ -35,6 +41,16 @@ final class CandidateListViewModel {
     /// Number of candidates
     var candidateCount: Int {
         candidates.count
+    }
+    
+    /// Filtered candidates based on search text and favorites filter
+    var filteredCandidates: [Candidate] {
+        candidates.filter {
+            (searchText.isEmpty ||
+             $0.firstName.localizedCaseInsensitiveContains(searchText) ||
+             $0.lastName.localizedCaseInsensitiveContains(searchText)) &&
+            (!showFavoritesOnly || $0.isFavorite)
+        }
     }
     
     // MARK: - Public Methods

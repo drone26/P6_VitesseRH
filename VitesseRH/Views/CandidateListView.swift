@@ -11,8 +11,6 @@ struct CandidateListView: View {
     @State private var viewModel: CandidateListViewModel
     let appViewModel: AppViewModel
     
-    @State private var searchText: String = ""
-    @State private var showFavoritesOnly: Bool = false
     @State private var edit: Bool = false
     
     init(appViewModel: AppViewModel) {
@@ -27,19 +25,12 @@ struct CandidateListView: View {
                     .ignoresSafeArea()
                 
                 VStack {
-                    CandidateSearchBarView(searchText: $searchText)
+                    CandidateSearchBarView(searchText: $viewModel.searchText)
                         .padding(.vertical, 10)
                     
                     ScrollView {
                         VStack(spacing: 10) {
-                            let filtered = viewModel.candidates.filter {
-                                (searchText.isEmpty ||
-                                 $0.firstName.localizedCaseInsensitiveContains(searchText) ||
-                                 $0.lastName.localizedCaseInsensitiveContains(searchText)) &&
-                                (!showFavoritesOnly || $0.isFavorite)
-                            }
-                            
-                            ForEach(filtered) { candidate in
+                            ForEach(viewModel.filteredCandidates) { candidate in
                                 NavigationLink {
                                     CandidateDetailView(
                                         candidate: candidate,
@@ -83,9 +74,9 @@ struct CandidateListView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        showFavoritesOnly.toggle()
+                        viewModel.showFavoritesOnly.toggle()
                     } label: {
-                        Image(systemName: showFavoritesOnly ? "star.fill" : "star")
+                        Image(systemName: viewModel.showFavoritesOnly ? "star.fill" : "star")
                     }
                 }
             }
@@ -99,4 +90,5 @@ struct CandidateListView: View {
 #Preview {
     @Previewable @State var appViewModel = AppViewModel()
     CandidateListView(appViewModel: appViewModel)
+        .environment(appViewModel)
 }
