@@ -16,11 +16,9 @@ struct VitesseApp: App {
             if appViewModel.isLogged {
                 // User is logged in - show main app
                 CandidateListView(appViewModel: appViewModel)
-                    .environment(appViewModel)
             } else {
                 // User is not logged in - show login screen
                 UserLoginView(appViewModel: appViewModel)
-                    .environment(appViewModel)
             }
         }
     }

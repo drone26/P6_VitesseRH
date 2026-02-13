@@ -99,5 +99,4 @@ struct CandidateListView: View {
 #Preview {
     @Previewable @State var appViewModel = AppViewModel()
     CandidateListView(appViewModel: appViewModel)
-        .environment(appViewModel)
 }
