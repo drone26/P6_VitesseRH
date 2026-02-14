@@ -37,6 +37,7 @@
 - *(playground)* Comment all playground to disable it
 - *(views-viewmodels)* Move filtered logic in viewModel
 - *(models)* Remove the playground
+- *(models)* Add async for consistency of actors
 
 ### 📚 Documentation
 
@@ -45,3 +46,5 @@
 - *(views)* Update comment
 - *(changelog)* Generate CHANGELOG.md with git cliff, thanks to conventional commits
 - *(views)* Remove header
+- *(changlog)* Update
+- *(changlog)* Add git cliff configuration file
