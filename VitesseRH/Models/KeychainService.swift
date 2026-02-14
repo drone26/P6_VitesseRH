@@ -9,8 +9,8 @@ import Foundation
 
 /// Protocol for Keychain operations
 protocol KeychainServiceProtocol: Actor {
-    func saveToken(_ token: String) throws
-    func getToken() throws -> String?
+    func saveToken(_ token: String) async throws
+    func getToken() async throws -> String?
 }
 
 /// Service for managing secure storage in the Keychain
@@ -22,7 +22,7 @@ actor KeychainService: KeychainServiceProtocol {
     // MARK: - Token Storage
     
     /// Saves authentication token to Keychain
-    func saveToken(_ token: String) throws {
+    func saveToken(_ token: String) async throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: KeychainKey.token,
@@ -40,7 +40,7 @@ actor KeychainService: KeychainServiceProtocol {
     }
     
     /// Retrieves authentication token from Keychain
-    func getToken() throws -> String? {
+    func getToken() async throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: KeychainKey.token,
