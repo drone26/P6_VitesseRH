@@ -5,13 +5,6 @@
 //  Created by Mathieu ARRIO on 03/02/2026.
 //
 
-//
-//  CandidateEditDetailView.swift
-//  Vitesse
-//
-//  Created by Mathieu ARRIO on 03/02/2026.
-//
-
 import SwiftUI
 
 struct CandidateEditDetailView: View {
