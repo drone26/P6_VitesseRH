@@ -329,4 +329,156 @@ final class CandidateListViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
         XCTAssertEqual(viewModel.candidates.count, 1)
     }
+    
+    // MARK: - Filtered Candidates Tests
+    
+    func test_filteredCandidates_search_by_firstName() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let candidates = [
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Bob", lastName: "Johnson", email: "bob@example.com", isFavorite: false)
+        ]
+        
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        await viewModel.fetchAllCandidates()
+        
+        // When
+        viewModel.searchText = "ja"
+        
+        // Then
+        XCTAssertEqual(viewModel.filteredCandidates.count, 1)
+        XCTAssertEqual(viewModel.filteredCandidates.first?.firstName, "Jane")
+    }
+    
+    func test_filteredCandidates_search_by_lastName_case_insensitive() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let candidates = [
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: false)
+        ]
+        
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        await viewModel.fetchAllCandidates()
+        
+        // When
+        viewModel.searchText = "DOE"
+        
+        // Then
+        XCTAssertEqual(viewModel.filteredCandidates.count, 1)
+        XCTAssertEqual(viewModel.filteredCandidates.first?.lastName, "Doe")
+    }
+    
+    func test_filteredCandidates_favorites_only() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let candidates = [
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: true),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Bob", lastName: "Johnson", email: "bob@example.com", isFavorite: true)
+        ]
+        
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        await viewModel.fetchAllCandidates()
+        
+        // When
+        viewModel.showFavoritesOnly = true
+        
+        // Then
+        XCTAssertEqual(viewModel.filteredCandidates.count, 2)
+        XCTAssertTrue(viewModel.filteredCandidates.allSatisfy { $0.isFavorite })
+    }
+    
+    func test_filteredCandidates_combined_search_and_favorites() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let candidates = [
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: true),
+            Candidate(id: UUID(), firstName: "Johnny", lastName: "Appleseed", email: "johnny@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: true)
+        ]
+        
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        await viewModel.fetchAllCandidates()
+        
+        // When
+        viewModel.searchText = "John"
+        viewModel.showFavoritesOnly = true
+        
+        // Then
+        // Should only find "John Doe" because "Johnny" is not a favorite
+        XCTAssertEqual(viewModel.filteredCandidates.count, 1)
+        XCTAssertEqual(viewModel.filteredCandidates.first?.lastName, "Doe")
+    }
+    
+    func test_filteredCandidates_returns_all_when_filters_empty() async throws {
+        // Given
+        let token = "test_token"
+        await mockKeychainService.setToken(token)
+        
+        let candidates = [
+            Candidate(id: UUID(), firstName: "John", lastName: "Doe", email: "john@example.com", isFavorite: false),
+            Candidate(id: UUID(), firstName: "Jane", lastName: "Smith", email: "jane@example.com", isFavorite: true)
+        ]
+        
+        let responseData = try JSONEncoder().encode(candidates)
+        mockSession.data = responseData
+        mockSession.response = HTTPURLResponse(
+            url: URL(string: "https://api.test.com/candidate")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        
+        await viewModel.fetchAllCandidates()
+        
+        // When
+        viewModel.searchText = ""
+        viewModel.showFavoritesOnly = false
+        
+        // Then
+        XCTAssertEqual(viewModel.filteredCandidates.count, 2)
+    }
 }
