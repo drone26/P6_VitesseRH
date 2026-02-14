@@ -43,3 +43,5 @@
 - *(project)* Add project VitesseRH README.md
 - *(viewModels)* Update comment
 - *(views)* Update comment
+- *(changelog)* Generate CHANGELOG.md with git cliff, thanks to conventional commits
+- *(views)* Remove header
