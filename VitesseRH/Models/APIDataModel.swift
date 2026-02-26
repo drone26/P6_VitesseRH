@@ -10,25 +10,25 @@ import Foundation
 // Candidate API backend requests, responses and errors model
 
 // POST /user/auth
-struct UserAuthenticationRequest: Codable {
+struct UserAuthenticationRequest: Codable, Sendable {
     let email: String
     let password: String
 }
 
-struct UserAuthenticationResponse: Codable {
+struct UserAuthenticationResponse: Codable, Sendable {
     let token: String
     let isAdmin: Bool
 }
 
 // POST /user/register
-struct UserRegisterRequest: Codable {
+struct UserRegisterRequest: Codable, Sendable {
     let email: String
     let password: String
     let firstName: String
     let lastName: String
 }
 
-struct Candidate: Codable, Identifiable {
+struct Candidate: Codable, Identifiable, Sendable {
     var id: UUID
     var firstName: String
     var lastName: String
@@ -44,7 +44,7 @@ struct Candidate: Codable, Identifiable {
 }
 
 // POST /candidate
-struct CandidateRequest: Codable {
+struct CandidateRequest: Codable, Sendable {
     let firstName: String
     let lastName: String
     let email: String
@@ -53,7 +53,7 @@ struct CandidateRequest: Codable {
     let note: String?
 }
 
-struct BackendErrorResponse: Codable {
+struct BackendErrorResponse: Codable, Sendable {
     let error: Bool
     let reason: String
 }

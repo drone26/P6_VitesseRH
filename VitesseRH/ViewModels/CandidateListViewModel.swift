@@ -9,7 +9,7 @@ import SwiftUI
 
 /// ViewModel for managing candidate list
 @Observable
-final class CandidateListViewModel {
+@MainActor final class CandidateListViewModel {
     // MARK: - Properties
     
     /// List of all candidates fetched from backend

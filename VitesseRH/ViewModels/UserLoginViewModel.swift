@@ -9,7 +9,7 @@ import SwiftUI
 
 /// ViewModel for managing user login
 @Observable
-final class UserLoginViewModel {
+@MainActor final class UserLoginViewModel {
     // MARK: - Properties
     
     /// Email input

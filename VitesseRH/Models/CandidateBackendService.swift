@@ -75,7 +75,7 @@ actor CandidateBackendService {
             return headers
         }
         
-        var body: Encodable? {
+        var body: (any Encodable & Sendable)? {
             switch self {
             case .userAuthenticate(let userAuthenticationRequest):
                 return userAuthenticationRequest

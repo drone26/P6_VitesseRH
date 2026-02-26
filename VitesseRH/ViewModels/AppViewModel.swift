@@ -10,7 +10,7 @@ import Observation
 
 /// Root ViewModel managing app state and shared services
 @Observable
-final class AppViewModel {
+@MainActor final class AppViewModel {
     // MARK: - Properties
     
     /// Indicates if user is logged in

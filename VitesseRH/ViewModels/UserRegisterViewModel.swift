@@ -9,7 +9,7 @@ import SwiftUI
 
 /// ViewModel for managing user registration
 @Observable
-final class UserRegisterViewModel {
+@MainActor final class UserRegisterViewModel {
     // MARK: - Properties
     
     /// First name input

@@ -52,12 +52,12 @@ enum HTTPMethod: String {
 }
 
 /// A protocol to define API configuration
-protocol APIEndpoint {
+protocol APIEndpoint: Sendable {
     var baseURL: URL? { get }
     var path: String { get }
     var method: HTTPMethod { get }
     var headers: [String: String]? { get }
-    var body: Encodable? { get }
+    var body: (any Encodable & Sendable)? { get }
 }
 
 /// Protocol used for ui test (mock)
@@ -86,7 +86,7 @@ actor APIService {
     /// Performs a request and decodes the response as a decodable type
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: generic type decodable
-    func request<T: Decodable>(_ endpoint: APIEndpoint) async throws -> T {
+    func request<E: APIEndpoint, T: Decodable>(_ endpoint: E) async throws -> T {
         let urlRequest = try buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
@@ -123,7 +123,7 @@ actor APIService {
     /// Performs a request and returns raw data
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: raw generic type (not decoded)
-    func requestData(_ endpoint: APIEndpoint) async throws -> Data {
+    func requestData<E: APIEndpoint>(_ endpoint: E) async throws -> Data {
         let urlRequest = try buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
@@ -135,7 +135,7 @@ actor APIService {
     /// Performs a request and returns a String (for plain text responses)
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: string result
-    func requestString(_ endpoint: APIEndpoint) async throws -> String {
+    func requestString<E: APIEndpoint>(_ endpoint: E) async throws -> String {
         let data = try await requestData(endpoint)
         
         guard let string = String(data: data, encoding: .utf8) else {
@@ -147,7 +147,7 @@ actor APIService {
     
     /// Performs a request and validates success without expecting a return body
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
-    func requestVoid(_ endpoint: APIEndpoint) async throws {
+    func requestVoid<E: APIEndpoint>(_ endpoint: E) async throws {
         let urlRequest = try buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
@@ -198,7 +198,7 @@ actor APIService {
     /// Build request (url, body, headers)
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: formatted URLRequest
-    private func buildRequest(from endpoint: APIEndpoint) throws -> URLRequest {
+    private func buildRequest<E: APIEndpoint>(from endpoint: E) throws -> URLRequest {
         guard let fullURL = endpoint.baseURL?.appendingPathComponent(endpoint.path) else {
             throw APIError.invalidURL
         }
