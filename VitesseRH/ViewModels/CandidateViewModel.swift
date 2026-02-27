@@ -9,7 +9,7 @@ import SwiftUI
 
 /// ViewModel for managing a single candidate
 @Observable
-final class CandidateViewModel {
+@MainActor final class CandidateViewModel {
     // MARK: - Properties
     
     /// The candidate being viewed

@@ -8,7 +8,7 @@
 import SwiftUI
 
 @Observable
-final class CandidateEditViewModel {
+@MainActor final class CandidateEditViewModel {
     // MARK: - Properties
     
     private(set) var candidates: [Candidate] = []

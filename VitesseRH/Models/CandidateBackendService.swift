@@ -21,7 +21,7 @@ actor CandidateBackendService {
     // MARK: - Endpoint Definitions
     
     /// API Candidate backend Endpoint definitions
-    private enum Endpoint: APIEndpoint {
+    private enum Endpoint: APIEndpoint, Sendable {
         case userAuthenticate(userAuthenticationRequest: UserAuthenticationRequest)
         case userRegister(userRegisterRequest: UserRegisterRequest)
         case fetchCandidates(token: String)
@@ -75,7 +75,7 @@ actor CandidateBackendService {
             return headers
         }
         
-        var body: Encodable? {
+        var body: (any Encodable & Sendable)? {
             switch self {
             case .userAuthenticate(let userAuthenticationRequest):
                 return userAuthenticationRequest

@@ -8,7 +8,7 @@
 import SwiftUI
 
 @Observable
-final class CandidateEditDetailViewModel {
+@MainActor final class CandidateEditDetailViewModel {
     // MARK: - Properties
     
     // Form fields
