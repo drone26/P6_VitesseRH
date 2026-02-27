@@ -5,13 +5,6 @@
 //  Created by Mathieu ARRIO on 09/02/2026.
 //
 
-//
-//  UserRegisterViewModelTests.swift
-//  VitesseRHTests
-//
-//  Created by Mathieu ARRIO on 09/02/2026.
-//
-
 import XCTest
 @testable import VitesseRH
 
