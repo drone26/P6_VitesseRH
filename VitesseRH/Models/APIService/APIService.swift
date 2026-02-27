@@ -67,17 +67,17 @@ protocol URLSessionProtocol: Sendable {
 
 extension URLSession: URLSessionProtocol {}
 
-/// Backend error response model
-private struct BackendError: Codable, Sendable {
-    let error: Bool
-    let reason: String
-}
-
 /// Generic API (Rest) Service
 actor APIService {
     private let session: URLSessionProtocol
     private let decoder: JSONDecoder
     
+    /// Backend error response model
+    private struct BackendError: Codable, Sendable {
+        let error: Bool
+        let reason: String
+    }
+
     init(session: URLSessionProtocol = URLSession.shared, decoder: JSONDecoder = JSONDecoder()) {
         self.session = session
         self.decoder = decoder
