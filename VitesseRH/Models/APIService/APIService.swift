@@ -61,14 +61,14 @@ protocol APIEndpoint: Sendable {
 }
 
 /// Protocol used for ui test (mock)
-protocol URLSessionProtocol {
+protocol URLSessionProtocol: Sendable {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
 extension URLSession: URLSessionProtocol {}
 
 /// Backend error response model
-private struct BackendError: Codable {
+private struct BackendError: Codable, Sendable {
     let error: Bool
     let reason: String
 }
