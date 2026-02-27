@@ -8,6 +8,7 @@
 import XCTest
 @testable import VitesseRH
 
+@MainActor
 final class CandidateBackendServiceTests: XCTestCase {
     
     var service: CandidateBackendService!
