@@ -31,11 +31,11 @@ actor CandidateBackendService {
         case deleteCandidate(candidateId: UUID, token: String)
         case toogleCandidateFavoriteStatus(candidateId: UUID, token: String)
         
-        nonisolated var baseURL: URL? {
+        var baseURL: URL? {
             return CandidateAPIURL
         }
         
-        nonisolated var path: String {
+        var path: String {
             switch self {
             case .userAuthenticate:
                 return "/user/auth"
@@ -50,7 +50,7 @@ actor CandidateBackendService {
             }
         }
         
-        nonisolated var method: HTTPMethod {
+        var method: HTTPMethod {
             switch self {
             case .userAuthenticate, .userRegister, .createCandidate, .toogleCandidateFavoriteStatus:
                 return .post
@@ -63,7 +63,7 @@ actor CandidateBackendService {
             }
         }
         
-        nonisolated var headers: [String: String]? {
+        var headers: [String: String]? {
             var headers = ["Accept": "application/json"]
             
             switch self {
@@ -75,7 +75,7 @@ actor CandidateBackendService {
             return headers
         }
         
-        nonisolated var body: (any Encodable & Sendable)? {
+        var body: (any Encodable & Sendable)? {
             switch self {
             case .userAuthenticate(let userAuthenticationRequest):
                 return userAuthenticationRequest

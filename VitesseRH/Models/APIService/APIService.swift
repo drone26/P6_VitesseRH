@@ -87,7 +87,7 @@ actor APIService {
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: generic type decodable
     func request<E: APIEndpoint, T: Decodable>(_ endpoint: E) async throws -> T {
-        let urlRequest = try buildRequest(from: endpoint)
+        let urlRequest = try await buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
         try validateResponse(response, data: data)
@@ -124,7 +124,7 @@ actor APIService {
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: raw generic type (not decoded)
     func requestData<E: APIEndpoint>(_ endpoint: E) async throws -> Data {
-        let urlRequest = try buildRequest(from: endpoint)
+        let urlRequest = try await buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
         try validateResponse(response, data: data)
@@ -148,7 +148,7 @@ actor APIService {
     /// Performs a request and validates success without expecting a return body
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     func requestVoid<E: APIEndpoint>(_ endpoint: E) async throws {
-        let urlRequest = try buildRequest(from: endpoint)
+        let urlRequest = try await buildRequest(from: endpoint)
         let (data, response) = try await session.data(for: urlRequest)
         
         try validateResponse(response, data: data)
@@ -198,16 +198,16 @@ actor APIService {
     /// Build request (url, body, headers)
     /// - Parameter endpoint: endpoint protocol APIEndpoint (baseURL, path, method, headers, body)
     /// - Returns: formatted URLRequest
-    private func buildRequest<E: APIEndpoint>(from endpoint: E) throws -> URLRequest {
-        guard let fullURL = endpoint.baseURL?.appendingPathComponent(endpoint.path) else {
+    private func buildRequest<E: APIEndpoint>(from endpoint: E) async throws -> URLRequest {
+        guard let fullURL = await endpoint.baseURL?.appendingPathComponent(endpoint.path) else {
             throw APIError.invalidURL
         }
         var request = URLRequest(url: fullURL)
         
-        request.httpMethod = endpoint.method.rawValue
+        request.httpMethod = await endpoint.method.rawValue
         
         // Add Headers
-        endpoint.headers?.forEach { key, value in
+        await endpoint.headers?.forEach { key, value in
             request.setValue(value, forHTTPHeaderField: key)
         }
         
@@ -217,7 +217,7 @@ actor APIService {
         }
         
         // Add Body if applicable
-        if let body = endpoint.body {
+        if let body = await endpoint.body {
             request.httpBody = try JSONEncoder().encode(body)
         }
         
