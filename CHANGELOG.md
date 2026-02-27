@@ -22,6 +22,7 @@
 - *(unit-test)* Add xctest for all View Models and for CandidateBackendService
 - *(models)* Add KeychainService to secure token access storage
 - *(unit-test)* Add xctest for CandidateBackendService with MockKeychain
+- *(unit-test)* Add xctest for filteredCandidates
 
 ### 🐛 Bug Fixes
 
@@ -38,6 +39,7 @@
 - *(views-viewmodels)* Move filtered logic in viewModel
 - *(models)* Remove the playground
 - *(models)* Add async for consistency of actors
+- *(project)* Remove unuset swift file
 
 ### 📚 Documentation
 
@@ -48,3 +50,4 @@
 - *(views)* Remove header
 - *(changlog)* Update
 - *(changlog)* Add git cliff configuration file
+- *(changlog)* Update
