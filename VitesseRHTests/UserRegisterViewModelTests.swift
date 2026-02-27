@@ -15,6 +15,7 @@
 import XCTest
 @testable import VitesseRH
 
+@MainActor
 final class UserRegisterViewModelTests: XCTestCase {
     
     var viewModel: UserRegisterViewModel!
