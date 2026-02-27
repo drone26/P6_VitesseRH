@@ -15,7 +15,7 @@ final class APIServiceTests: XCTestCase {
     
     // MARK: - Test Helpers
     
-    struct MockData: Codable, Equatable {
+    struct MockData: Codable, Equatable, Sendable {
         let id: Int
         let name: String
     }
@@ -25,7 +25,7 @@ final class APIServiceTests: XCTestCase {
         var path: String = "/test"
         var method: HTTPMethod = .get
         var headers: [String: String]? = nil
-        var body: Encodable? = nil
+        var body: (any Encodable & Sendable)? = nil
     }
     
     override func setUp() {
