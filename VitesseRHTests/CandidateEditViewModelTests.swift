@@ -8,6 +8,7 @@
 import XCTest
 @testable import VitesseRH
 
+@MainActor
 final class CandidateEditViewModelTests: XCTestCase {
     
     var viewModel: CandidateEditViewModel!
